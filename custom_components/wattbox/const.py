@@ -70,8 +70,8 @@ DEFAULT_CONNECTION_TYPE: Final[str] = CONNECTION_TELNET
 #: Entities that only carry meaning when a UPS is attached. On a WattBox with
 #: no UPS the device still answers `?UPSStatus`, but with a zeroed placeholder
 #: tuple, so these would sit at 0/off forever while still being polled and
-#: recorded. They are created disabled when `has_ups` is false, and can be
-#: enabled from the entity registry if wanted.
+#: recorded. They are not created when `has_ups` is false, and appear on their
+#: own once a UPS is attached and the entry reloads.
 UPS_ONLY_SENSORS: Final[frozenset[str]] = frozenset(
     {"battery_charge", "battery_load", "est_run_time"}
 )
@@ -80,8 +80,8 @@ UPS_ONLY_BINARY_SENSORS: Final[frozenset[str]] = frozenset(
 )
 
 #: Attributes the IP (telnet/SSH) driver never populates -- there is no
-#: equivalent in the Integration Protocol. Created disabled on those units so
-#: they do not sit at `unknown` indefinitely.
+#: equivalent in the Integration Protocol, so they are not created on those
+#: units rather than sitting at `unknown` indefinitely.
 HTTP_ONLY_BINARY_SENSORS: Final[frozenset[str]] = frozenset({"cloud_status"})
 
 
