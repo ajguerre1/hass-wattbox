@@ -16,7 +16,7 @@ from homeassistant.const import (
 # Base component constants
 DOMAIN: Final[str] = "wattbox"
 DOMAIN_DATA: Final[str] = f"{DOMAIN}_data"
-VERSION: Final[str] = "1.1.1-wb800.6"
+VERSION: Final[str] = "1.1.1-wb800.7"
 PLATFORMS: Final[list[str]] = ["binary_sensor", "button", "sensor", "switch"]
 ISSUE_URL: Final[str] = "https://github.com/eseglem/hass-wattbox/issues"
 

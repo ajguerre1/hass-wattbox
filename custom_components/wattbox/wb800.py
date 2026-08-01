@@ -36,7 +36,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Final, Pattern
+from re import Pattern
+from typing import Any, Final
 
 from pywattbox.driver.async_driver import WattBoxAsyncDriver
 from pywattbox.ip_wattbox import IpWattBox
@@ -152,7 +153,7 @@ async def on_close(driver: WattBox800AsyncDriver) -> None:
 class WattBox800AsyncDriver(WattBoxAsyncDriver):
     """WattBoxAsyncDriver with 800-series command handling."""
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         kwargs.setdefault("comms_prompt_pattern", PROMPTS)
         kwargs.setdefault("on_open", on_open)
         kwargs.setdefault("on_close", on_close)
@@ -211,12 +212,17 @@ class WattBox800(IpWattBox):
 
     @property
     def async_driver(self) -> WattBox800AsyncDriver:
-        if not self._async_driver:
-            self._async_driver = WattBox800AsyncDriver(
+        # `IpWattBox._async_driver` is typed as the base driver, so narrow on
+        # the subclass rather than merely on None -- that also rebuilds it if a
+        # base-class driver was somehow assigned.
+        driver = self._async_driver
+        if not isinstance(driver, WattBox800AsyncDriver):
+            driver = WattBox800AsyncDriver(
                 **self._conninfo,
                 transport="asyncssh" if self._transport == "ssh" else "asynctelnet",
             )
-        return self._async_driver
+            self._async_driver = driver
+        return driver
 
     async def async_close(self) -> None:
         """Close the channel so the session is released on the device.
