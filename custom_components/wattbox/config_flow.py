@@ -140,23 +140,39 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             user_input[CONF_PORT] = CONNECTION_TYPES[connection_type]
 
-            try:
-                info = await validate_input(self.hass, user_input)
+            # Captured here, not only in the options flow, so an outlet feeding
+            # the site's own network equipment never gets a switch entity --
+            # not even for the moment between adding the entry and opening
+            # options for the first time.
+            options: dict[str, Any] = {}
+            if skip_regexp := (user_input.pop(CONF_SKIP_REGEXP, "") or "").strip():
+                try:
+                    re.compile(skip_regexp)
+                except re.error:
+                    errors[CONF_SKIP_REGEXP] = "invalid_regex"
+                else:
+                    options[CONF_SKIP_REGEXP] = skip_regexp
 
-                unique_id = (
-                    info.get("serial_number") or f"{info['host']}_{info['port']}"
-                )
-                await self.async_set_unique_id(unique_id)
-                self._abort_if_unique_id_configured()
+            if not errors:
+                try:
+                    info = await validate_input(self.hass, user_input)
 
-                return self.async_create_entry(title=info["title"], data=user_input)
-            except CannotConnect:
-                errors["base"] = "cannot_connect"
-            except InvalidAuth:
-                errors["base"] = "invalid_auth"
-            except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception")
-                errors["base"] = "unknown"
+                    unique_id = (
+                        info.get("serial_number") or f"{info['host']}_{info['port']}"
+                    )
+                    await self.async_set_unique_id(unique_id)
+                    self._abort_if_unique_id_configured()
+
+                    return self.async_create_entry(
+                        title=info["title"], data=user_input, options=options
+                    )
+                except CannotConnect:
+                    errors["base"] = "cannot_connect"
+                except InvalidAuth:
+                    errors["base"] = "invalid_auth"
+                except Exception:  # pylint: disable=broad-except
+                    _LOGGER.exception("Unexpected exception")
+                    errors["base"] = "unknown"
 
         data_schema = vol.Schema(
             {
@@ -173,6 +189,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_USERNAME, default=DEFAULT_USER): str,
                 vol.Optional(CONF_PASSWORD, default=DEFAULT_PASSWORD): str,
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
+                vol.Optional(CONF_SKIP_REGEXP, default=""): str,
             }
         )
 

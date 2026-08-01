@@ -9,10 +9,12 @@
           "connection_type": "Connection type",
           "username": "Username",
           "password": "Password",
-          "name": "Name"
+          "name": "Name",
+          "skip_regexp": "Skip outlets matching (optional)"
         },
         "data_description": {
-          "connection_type": "800 series units use Telnet. The 150/250/650 series use HTTP. On the 800 series, SSH is reserved for OvrC remote management and normally rejects the device's own credentials."
+          "connection_type": "800 series units use Telnet. The 150/250/650 series use HTTP. On the 800 series, SSH is reserved for OvrC remote management and normally rejects the device's own credentials.",
+          "skip_regexp": "Regular expression matched against outlet names. Matching outlets get no switch entity, applied from the moment the device is added. Use this for any outlet powering your network equipment, so it can never be switched off from Home Assistant. Can be changed later under Configure."
         }
       },
       "reauth_confirm": {
@@ -27,7 +29,8 @@
     "error": {
       "cannot_connect": "Failed to connect",
       "invalid_auth": "Invalid authentication",
-      "unknown": "Unexpected error"
+      "unknown": "Unexpected error",
+      "invalid_regex": "Not a valid regular expression"
     },
     "abort": {
       "already_configured": "Device is already configured",
