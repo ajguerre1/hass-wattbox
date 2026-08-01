@@ -20,6 +20,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
+from homeassistant.helpers.importlib import async_import_module
 from pywattbox.base import BaseWattBox
 
 from .const import (
@@ -70,11 +71,21 @@ async def validate_input(hass: HomeAssistant, data: dict) -> dict:
             # with it would reject correct credentials.
             from .wb800 import async_create_wb800
 
+            # scrapli imports its transport plugin lazily inside the driver
+            # constructor, which blocks the event loop. Pre-import it here, as
+            # `async_setup_entry` already does for the same reason.
+            transport = "asyncssh" if port == 22 else "asynctelnet"
+            await async_import_module(
+                hass, f"scrapli.transport.plugins.{transport}.transport"
+            )
+
             wattbox = await async_create_wb800(
                 host=host, user=username, password=password, port=port
             )
         else:
             from pywattbox.http_wattbox import async_create_http_wattbox
+
+            await async_import_module(hass, "encodings.ascii")
 
             wattbox = await async_create_http_wattbox(
                 host=host, user=username, password=password, port=port
