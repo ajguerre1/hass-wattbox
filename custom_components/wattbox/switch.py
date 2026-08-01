@@ -41,10 +41,11 @@ async def async_setup_entry(
         entities: list[WattBoxEntity] = []
         wattbox: BaseWattBox = hass.data[DOMAIN_DATA][name]
 
-        # For config entries, we'll include all outlets by default
-        # TODO: Add options for name_regexp and skip_regexp in config flow
-        name_regexp = None
-        skip_regexp = None
+        # Sourced from the options flow. Without this, every outlet becomes a
+        # switch with no way to exclude any -- including outlets powering the
+        # network equipment this integration depends on.
+        name_regexp = validate_regex(entry.options, CONF_NAME_REGEXP)
+        skip_regexp = validate_regex(entry.options, CONF_SKIP_REGEXP)
 
         skipped_an_outlet = False
         for i, outlet in wattbox.outlets.items():

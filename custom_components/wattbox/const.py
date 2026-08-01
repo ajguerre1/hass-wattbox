@@ -48,6 +48,25 @@ TOPIC_UPDATE: Final[str] = "{}_data_update_{}"
 CONF_NAME_REGEXP: Final[str] = "name_regexp"
 CONF_SKIP_REGEXP: Final[str] = "skip_regexp"
 
+#: Per-outlet metering. Off by default: it costs one extra request per outlet
+#: on every poll and creates no entities unless explicitly enabled.
+CONF_OUTLET_METERING: Final[str] = "outlet_metering"
+DEFAULT_OUTLET_METERING: Final[bool] = False
+
+# Connection type. Chosen explicitly rather than inferred from the port,
+# because guessing sends 800-series users to the HTTP driver, which answers
+# with a 401 and no indication of why.
+CONF_CONNECTION_TYPE: Final[str] = "connection_type"
+CONNECTION_HTTP: Final[str] = "http"
+CONNECTION_TELNET: Final[str] = "telnet"
+CONNECTION_SSH: Final[str] = "ssh"
+CONNECTION_TYPES: Final[dict[str, int]] = {
+    CONNECTION_TELNET: 23,
+    CONNECTION_HTTP: 80,
+    CONNECTION_SSH: 22,
+}
+DEFAULT_CONNECTION_TYPE: Final[str] = CONNECTION_TELNET
+
 
 class _BinarySensorDict(TypedDict):
     """TypedDict for use in BINARY_SENSOR_TYPES"""
