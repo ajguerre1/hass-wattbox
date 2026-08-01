@@ -21,13 +21,17 @@ from .entity import WattBoxEntity
 _LOGGER = logging.getLogger(__name__)
 
 
-def _enabled_by_default(hass: HomeAssistant, name: str, sensor_type: str) -> bool:
+def _is_supported(hass: HomeAssistant, name: str, sensor_type: str) -> bool:
     """Whether this sensor can ever carry a real value on this device.
 
     A WattBox with no UPS reports a zeroed placeholder UPS tuple, and the IP
-    driver has no source at all for `cloud_status`. Creating those entities
-    enabled leaves them pinned at 0/unknown while still being polled and
-    recorded.
+    driver has no source at all for `cloud_status`, so those entities sit
+    pinned at off/unknown while still being polled and recorded.
+
+    Unsupported sensors are *not created*, rather than created disabled.
+    `entity_registry_enabled_default` is only consulted when an entity is
+    first registered, so it does nothing for anyone who already has these
+    entities. Skipping creation takes effect on every reload.
     """
     wattbox = hass.data.get(DOMAIN_DATA, {}).get(name)
     if wattbox is None:
@@ -63,12 +67,14 @@ async def async_setup_entry(
             if sensor_type not in BINARY_SENSOR_TYPES:
                 continue
 
-            try:
-                sensor = WattBoxBinarySensor(hass, name, sensor_type)
-                sensor._attr_entity_registry_enabled_default = _enabled_by_default(
-                    hass, name, sensor_type
+            if not _is_supported(hass, name, sensor_type):
+                _LOGGER.debug(
+                    "Skipping unsupported binary sensor %s for %s", sensor_type, name
                 )
-                entities.append(sensor)
+                continue
+
+            try:
+                entities.append(WattBoxBinarySensor(hass, name, sensor_type))
             except Exception as err:
                 _LOGGER.error("Failed to append WattBoxBinarySensor: %s", err)
                 raise PlatformNotReady from err
