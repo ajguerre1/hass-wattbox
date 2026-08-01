@@ -11,21 +11,23 @@ direct-URL wheel is re-fetched on *every* restart. On a system where the
 WattBox itself powers the network equipment, that is a circular dependency:
 a restart while the modem is down would leave the integration unable to load.
 
-What pywattbox 0.9.0 gets wrong on the 800 series
--------------------------------------------------
-1. ``_send_command`` guards the telnet path with
+What pywattbox 0.9.0 gets wrong on the 800 series, in the order it bites
+------------------------------------------------------------------------
+1. **Login never completes.** scrapli's in-channel telnet auth does not
+   satisfy these units, which fail it as "Invalid Login"; setup dies with
+   ``ScrapliTimeout: timed out during in channel telnet authentication``.
+   Nothing below is reachable until this is fixed.
+2. ``_send_command`` guards the telnet path with
    ``self.transport not in ("telnet", "asynctelnet")``. ``self.transport`` is a
    transport *object*, so that is always true; every command takes the "read
    more" branch and blocks on a second ``_read_until_prompt()`` until
-   ``timeout_ops``. This is the first-order failure -- ``split_response[1]`` is
-   never reached.
-2. ``PROMPTS`` leaves its alternatives ungrouped, so ``^`` binds only to the
+   ``timeout_ops``. ``split_response[1]`` is never reached, so the echo
+   assumption is not what fails first.
+3. ``PROMPTS`` leaves its alternatives ungrouped, so ``^`` binds only to the
    first branch and ``\\n$`` only to the last. ``#Error`` can never match at
    all, because scrapli strips the trailing newline before searching.
-3. ``\\S+`` cannot match values containing spaces, and outlet names are user
+4. ``\\S+`` cannot match values containing spaces, and outlet names are user
    supplied (``?OutletName={Media Bridge 1 to 3},...``).
-4. scrapli's in-channel telnet auth is rejected by these units as
-   "Invalid Login".
 
 Verified against a WB-800-IPVM-6 on firmware 2.10.0.0.
 """
