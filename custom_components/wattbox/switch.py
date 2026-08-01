@@ -68,13 +68,18 @@ async def async_setup_entry(
                 _LOGGER.error("Failed to append WattBoxBinarySwitch: %s", err)
                 raise PlatformNotReady from err
 
-        # Add the master switch if no outlets were skipped
-        if not skipped_an_outlet:
-            entities.append(WattBoxMasterSwitch(hass, name))
-        else:
+        # Add the master switch if no outlets were skipped and the device
+        # actually exposes one. The IP (telnet/SSH) driver never populates
+        # `master_outlet`, so on those units the entity would sit at `unknown`
+        # and silently do nothing when pressed.
+        if skipped_an_outlet:
             _LOGGER.debug(
                 "Skipping master switch because an outlet was skipped for %s", name
             )
+        elif wattbox.master_outlet is None:
+            _LOGGER.debug("Skipping master switch: %s exposes no master outlet", name)
+        else:
+            entities.append(WattBoxMasterSwitch(hass, name))
 
         if skipped_an_outlet:
             _LOGGER.warning(

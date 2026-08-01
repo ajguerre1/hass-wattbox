@@ -10,10 +10,38 @@ from homeassistant.exceptions import PlatformNotReady
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import BINARY_SENSOR_TYPES
+from .const import (
+    BINARY_SENSOR_TYPES,
+    DOMAIN_DATA,
+    HTTP_ONLY_BINARY_SENSORS,
+    UPS_ONLY_BINARY_SENSORS,
+)
 from .entity import WattBoxEntity
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _enabled_by_default(hass: HomeAssistant, name: str, sensor_type: str) -> bool:
+    """Whether this sensor can ever carry a real value on this device.
+
+    A WattBox with no UPS reports a zeroed placeholder UPS tuple, and the IP
+    driver has no source at all for `cloud_status`. Creating those entities
+    enabled leaves them pinned at 0/unknown while still being polled and
+    recorded.
+    """
+    wattbox = hass.data.get(DOMAIN_DATA, {}).get(name)
+    if wattbox is None:
+        return True
+    if sensor_type in UPS_ONLY_BINARY_SENSORS and not getattr(
+        wattbox, "has_ups", False
+    ):
+        return False
+    if (
+        sensor_type in HTTP_ONLY_BINARY_SENSORS
+        and getattr(wattbox, sensor_type, None) is None
+    ):
+        return False
+    return True
 
 
 async def async_setup_entry(
@@ -36,7 +64,11 @@ async def async_setup_entry(
                 continue
 
             try:
-                entities.append(WattBoxBinarySensor(hass, name, sensor_type))
+                sensor = WattBoxBinarySensor(hass, name, sensor_type)
+                sensor._attr_entity_registry_enabled_default = _enabled_by_default(
+                    hass, name, sensor_type
+                )
+                entities.append(sensor)
             except Exception as err:
                 _LOGGER.error("Failed to append WattBoxBinarySensor: %s", err)
                 raise PlatformNotReady from err

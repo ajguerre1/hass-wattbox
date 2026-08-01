@@ -16,7 +16,7 @@ from homeassistant.const import (
 # Base component constants
 DOMAIN: Final[str] = "wattbox"
 DOMAIN_DATA: Final[str] = f"{DOMAIN}_data"
-VERSION: Final[str] = "1.1.1-wb800.2"
+VERSION: Final[str] = "1.1.1-wb800.3"
 PLATFORMS: Final[list[str]] = ["binary_sensor", "button", "sensor", "switch"]
 ISSUE_URL: Final[str] = "https://github.com/eseglem/hass-wattbox/issues"
 
@@ -66,6 +66,23 @@ CONNECTION_TYPES: Final[dict[str, int]] = {
     CONNECTION_SSH: 22,
 }
 DEFAULT_CONNECTION_TYPE: Final[str] = CONNECTION_TELNET
+
+#: Entities that only carry meaning when a UPS is attached. On a WattBox with
+#: no UPS the device still answers `?UPSStatus`, but with a zeroed placeholder
+#: tuple, so these would sit at 0/off forever while still being polled and
+#: recorded. They are created disabled when `has_ups` is false, and can be
+#: enabled from the entity registry if wanted.
+UPS_ONLY_SENSORS: Final[frozenset[str]] = frozenset(
+    {"battery_charge", "battery_load", "est_run_time"}
+)
+UPS_ONLY_BINARY_SENSORS: Final[frozenset[str]] = frozenset(
+    {"audible_alarm", "battery_health", "battery_test", "mute"}
+)
+
+#: Attributes the IP (telnet/SSH) driver never populates -- there is no
+#: equivalent in the Integration Protocol. Created disabled on those units so
+#: they do not sit at `unknown` indefinitely.
+HTTP_ONLY_BINARY_SENSORS: Final[frozenset[str]] = frozenset({"cloud_status"})
 
 
 class _BinarySensorDict(TypedDict):

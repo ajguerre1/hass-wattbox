@@ -22,10 +22,23 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.util import dt as dt_util, slugify
 
-from .const import SENSOR_TYPES
+from .const import DOMAIN_DATA, SENSOR_TYPES, UPS_ONLY_SENSORS
 from .entity import WattBoxEntity
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _enabled_by_default(hass: HomeAssistant, name: str, sensor_type: str) -> bool:
+    """Whether this sensor can ever carry a real value on this device.
+
+    A WattBox with no UPS still answers `?UPSStatus`, but with a zeroed
+    placeholder tuple, so the battery sensors would sit at 0 forever while
+    still being polled and recorded.
+    """
+    if sensor_type not in UPS_ONLY_SENSORS:
+        return True
+    wattbox = hass.data.get(DOMAIN_DATA, {}).get(name)
+    return wattbox is None or bool(getattr(wattbox, "has_ups", False))
 
 
 async def async_setup_entry(
@@ -48,7 +61,11 @@ async def async_setup_entry(
                 continue
 
             try:
-                entities.append(WattBoxSensor(hass, conf_name, sensor_type))
+                sensor = WattBoxSensor(hass, conf_name, sensor_type)
+                sensor._attr_entity_registry_enabled_default = _enabled_by_default(
+                    hass, conf_name, sensor_type
+                )
+                entities.append(sensor)
             except Exception as err:
                 _LOGGER.error("Failed to append WattBoxSensor: %s", err)
                 raise PlatformNotReady from err
