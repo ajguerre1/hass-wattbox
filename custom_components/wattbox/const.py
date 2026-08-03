@@ -16,7 +16,7 @@ from homeassistant.const import (
 # Base component constants
 DOMAIN: Final[str] = "wattbox"
 DOMAIN_DATA: Final[str] = f"{DOMAIN}_data"
-VERSION: Final[str] = "1.1.1-wb800.8"
+VERSION: Final[str] = "1.1.1-wb800.9"
 PLATFORMS: Final[list[str]] = ["binary_sensor", "button", "sensor", "switch"]
 ISSUE_URL: Final[str] = "https://github.com/eseglem/hass-wattbox/issues"
 
@@ -54,6 +54,17 @@ CONF_SKIP_REGEXP: Final[str] = "skip_regexp"
 #: fleet, but it is the installer's call rather than a silent default.
 CONF_OUTLET_METERING: Final[str] = "outlet_metering"
 DEFAULT_OUTLET_METERING: Final[bool] = True
+
+#: The sensors created per outlet when metering is on, in display order.
+#: Keys into `SENSOR_TYPES`, so the units, icons and device classes match the
+#: whole-unit equivalents. Only the IP (telnet/SSH) driver fills these -- the
+#: HTTP XML API has no per-outlet values -- which is why creation is gated on
+#: the presence of `outlet_power_status`, an attribute only `IpWattBox` defines.
+OUTLET_SENSOR_TYPES: Final[tuple[str, ...]] = (
+    "power_value",
+    "current_value",
+    "voltage_value",
+)
 
 # Connection type. Chosen explicitly rather than inferred from the port,
 # because guessing sends 800-series users to the HTTP driver, which answers

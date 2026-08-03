@@ -22,8 +22,17 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.util import dt as dt_util, slugify
 
-from .const import DOMAIN_DATA, SENSOR_TYPES, UPS_ONLY_SENSORS
+from .const import (
+    CONF_OUTLET_METERING,
+    CONF_SKIP_REGEXP,
+    DEFAULT_OUTLET_METERING,
+    DOMAIN_DATA,
+    OUTLET_SENSOR_TYPES,
+    SENSOR_TYPES,
+    UPS_ONLY_SENSORS,
+)
 from .entity import WattBoxEntity
+from .switch import validate_regex
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,7 +66,7 @@ async def async_setup_entry(
     try:
         conf_name: str = entry.data[CONF_NAME]
         clean_name = slugify(conf_name)
-        entities: list[WattBoxSensor | WattBoxEnergySensor] = []
+        entities: list[WattBoxSensor | WattBoxEnergySensor | WattBoxOutletSensor] = []
 
         # Get available resources from entry data or use all sensor types
         resources = entry.data.get(CONF_RESOURCES, list(SENSOR_TYPES.keys()))
@@ -82,10 +91,54 @@ async def async_setup_entry(
         # Add a Total Energy sensor that integrates the power reading over time.
         entities.append(WattBoxEnergySensor(hass, conf_name, clean_name))
 
+        entities.extend(_outlet_sensors(hass, entry, conf_name))
+
         async_add_entities(entities)
     except Exception as err:
         _LOGGER.error("Error setting up sensor platform: %s", err)
         raise PlatformNotReady from err
+
+
+def _outlet_sensors(
+    hass: HomeAssistant, entry: ConfigEntry, conf_name: str
+) -> list["WattBoxOutletSensor"]:
+    """Per-outlet power, current and voltage, when metering is enabled.
+
+    Not created when the option is off, rather than created and disabled: the
+    option *is* the opt-in, and `entity_registry_enabled_default` is only
+    consulted at first registration, so a disabled-by-default entity would
+    never come back for anyone who already has it.
+
+    Gated on `outlet_power_status`, which only `IpWattBox` defines. Enabling
+    metering on an HTTP unit polls nothing extra and would produce sensors
+    stuck at `unknown` forever -- the XML API reports power for the unit as a
+    whole and never per outlet.
+    """
+    if not entry.options.get(CONF_OUTLET_METERING, DEFAULT_OUTLET_METERING):
+        return []
+
+    wattbox = hass.data[DOMAIN_DATA][conf_name]
+    if not getattr(wattbox, "outlet_power_status", False):
+        _LOGGER.debug(
+            "Per-outlet metering requested for %s, but this device does not "
+            "report it; no outlet sensors created",
+            conf_name,
+        )
+        return []
+
+    # Skipped outlets are skipped whole. A sensor cannot cut anyone's network,
+    # but "skip outlets matching" should mean one thing, not two.
+    skip_regexp = validate_regex(entry.options, CONF_SKIP_REGEXP)
+
+    sensors: list[WattBoxOutletSensor] = []
+    for index, outlet in wattbox.outlets.items():
+        if skip_regexp and outlet.name and skip_regexp.search(outlet.name):
+            continue
+        sensors.extend(
+            WattBoxOutletSensor(hass, conf_name, index, sensor_type)
+            for sensor_type in OUTLET_SENSOR_TYPES
+        )
+    return sensors
 
 
 async def async_setup_platform(
@@ -142,6 +195,37 @@ class WattBoxSensor(WattBoxEntity, SensorEntity):
     def _update_attrs(self) -> None:
         self._attr_native_value = getattr(
             self._wattbox, self.sensor_type, STATE_UNKNOWN
+        )
+
+
+class WattBoxOutletSensor(WattBoxEntity, SensorEntity):
+    """Power, current or voltage for a single outlet."""
+
+    def __init__(
+        self, hass: HomeAssistant, name: str, index: int, sensor_type: str
+    ) -> None:
+        super().__init__(hass, name)
+        self.index: int = index
+        self.sensor_type: str = sensor_type
+        sensor_def = SENSOR_TYPES[sensor_type]
+        outlet_name = self._wattbox.outlets[index].name or f"Outlet {index}"
+        self._attr_name = f"{name} {outlet_name} {sensor_def['name']}"
+        self._attr_native_unit_of_measurement = sensor_def["unit"]
+        self._attr_icon = sensor_def["icon"]
+        self._attr_device_class = sensor_def["device_class"]
+        self._attr_state_class = sensor_def["state_class"]
+        # Keyed by outlet index, not name: outlets get renamed on the device
+        # and the entity has to survive that.
+        self._attr_unique_id = (
+            f"{self._wattbox.serial_number}-outlet-{index}-sensor-{sensor_type}"
+        )
+        self._attr_extra_state_attributes["index"] = index
+
+    @callback
+    def _update_attrs(self) -> None:
+        outlet = self._wattbox.outlets.get(self.index)
+        self._attr_native_value = (
+            getattr(outlet, self.sensor_type, None) if outlet is not None else None
         )
 
 
