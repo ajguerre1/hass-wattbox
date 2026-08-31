@@ -89,7 +89,10 @@ async def _async_create_wattbox(
     """Create a WattBox instance based on port (IP or HTTP)."""
     if port in (22, 23):
         _LOGGER.debug("Importing IP Wattbox")
-        from pywattbox.ip_wattbox import async_create_ip_wattbox
+        # WattBox800 patches pywattbox 0.9.0's IP driver, which cannot log in
+        # to or parse replies from the 800 series. See wb800.py; remove once
+        # the upstream fix is released.
+        from .wb800 import async_create_wb800
 
         # Pre-import the transport plugin to avoid blocking call issues
         transport = "asyncssh" if port == 22 else "asynctelnet"
@@ -98,7 +101,7 @@ async def _async_create_wattbox(
         )
 
         _LOGGER.debug("Creating IP WattBox")
-        wattbox: BaseWattBox = await async_create_ip_wattbox(
+        wattbox: BaseWattBox = await async_create_wb800(
             host=host, user=username, password=password, port=port
         )
     else:

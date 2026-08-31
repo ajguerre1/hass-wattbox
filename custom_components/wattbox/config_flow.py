@@ -60,7 +60,10 @@ async def validate_input(hass: HomeAssistant, data: dict) -> dict:
     wattbox: BaseWattBox | None = None
     try:
         if port in (22, 23):
-            from pywattbox.ip_wattbox import async_create_ip_wattbox
+            # Must be the patched driver, not pywattbox's: stock 0.9.0 cannot
+            # even authenticate to an 800-series unit over telnet, so probing
+            # with it would reject correct credentials.
+            from .wb800 import async_create_wb800
 
             # scrapli imports its transport plugin lazily inside the driver
             # constructor, which blocks the event loop. Pre-import it here, as
@@ -70,7 +73,7 @@ async def validate_input(hass: HomeAssistant, data: dict) -> dict:
                 hass, f"scrapli.transport.plugins.{transport}.transport"
             )
 
-            wattbox = await async_create_ip_wattbox(
+            wattbox = await async_create_wb800(
                 host=host, user=username, password=password, port=port
             )
         else:
